@@ -127,6 +127,12 @@ resource "aws_security_group" "my-ecs-sg" {
     protocol        = "tcp"
     security_groups = [aws_security_group.my-alb-sg.id]
   }
+  ingress {
+    from_port       = 3000
+    to_port         = 3000
+    protocol        = "tcp"
+    security_groups = [aws_security_group.my-alb-sg.id]
+  }
   egress {
     from_port   = 0
     to_port     = 0
@@ -206,7 +212,7 @@ resource "aws_alb_target_group" "my-alb-tg-backend" {
   protocol    = "HTTP"
   target_type = "ip"
   health_check {
-    path                = "/api/auth/adminlogin"
+    path                = "/api/health"
     interval            = 30
     timeout             = 5
     healthy_threshold   = 2

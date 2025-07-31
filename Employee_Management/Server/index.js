@@ -50,6 +50,6 @@ app.get("/api/verify", verifyUser, (req, res) => {
   return res.json({ Status: true, role: req.role, id: req.id });
 });
 
-app.listen(3000, () => {
+app.listen(3000, "0.0.0.0", () => {
   console.log("Server is running");
 });
