@@ -48,6 +48,17 @@ con.query(
   }
 );
 
+const email = "admin1@gmail.com";
+const password = "12345";
+
+const sql = "INSERT INTO admin (email, password) VALUES (?, ?)";
+con.query(sql, [email, password], (err, result) => {
+  if (err) {
+    console.error("Insert error:", err);
+  } else {
+    console.log("Admin inserted with ID:", result.insertId);
+  }
+});
 con.query(
   `
   CREATE TABLE IF NOT EXISTS category (

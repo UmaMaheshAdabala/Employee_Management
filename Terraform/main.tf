@@ -22,7 +22,7 @@ resource "aws_subnet" "my-public-subnet" {
 #Subnet - Private
 resource "aws_subnet" "my-private-subnet" {
   vpc_id            = aws_vpc.my-vpc.id
-  count             = 2
+  count             = 3
   availability_zone = var.my-private-subnet.availability_zone[count.index]
   cidr_block        = var.my-private-subnet.cidr_block[count.index]
   tags = {
@@ -93,68 +93,68 @@ resource "aws_security_group" "my-alb-sg" {
   }
 }
 
-# #Security Group for ECS
-# resource "aws_security_group" "my-ecs-sg" {
-#   name   = "myECSSG"
-#   vpc_id = aws_vpc.my-vpc.id
-#   ingress {
-#     from_port       = 80
-#     to_port         = 80
-#     protocol        = "tcp"
-#     security_groups = [aws_security_group.my-alb-sg.id]
-#   }
-#   egress {
-#     from_port   = 0
-#     to_port     = 0
-#     protocol    = "-1"
-#     cidr_blocks = ["0.0.0.0/0"]
-#   }
-# }
+#Security Group for ECS
+resource "aws_security_group" "my-ecs-sg" {
+  name   = "myECSSG"
+  vpc_id = aws_vpc.my-vpc.id
+  ingress {
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [aws_security_group.my-alb-sg.id]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
 
-# #Security group for RDS
-# resource "aws_security_group" "my-rds-sg" {
-#   name   = "myRDSSG"
-#   vpc_id = aws_vpc.my-vpc.id
-#   ingress {
-#     from_port       = 3306
-#     to_port         = 3306
-#     protocol        = "tcp"
-#     security_groups = [aws_security_group.my-ecs-sg.id]
-#   }
-#   egress {
-#     from_port   = 0
-#     to_port     = 0
-#     protocol    = "-1"
-#     cidr_blocks = ["0.0.0.0/0"]
-#   }
-# }
+#Security group for RDS
+resource "aws_security_group" "my-rds-sg" {
+  name   = "myRDSSG"
+  vpc_id = aws_vpc.my-vpc.id
+  ingress {
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.my-ecs-sg.id]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
 
-# # RDS Subnetgroup
+# RDS Subnetgroup
 
-# resource "aws_db_subnet_group" "my-rds-subnet" {
-#   name       = "myRDSSubnetGroup"
-#   subnet_ids = [aws_subnet.my-private-subnet[0].id]
-# }
+resource "aws_db_subnet_group" "my-rds-subnet" {
+  name       = "my-rds-subnet-group"
+  subnet_ids = [aws_subnet.my-private-subnet[0].id, aws_subnet.my-private-subnet[2].id]
+}
 
-# # Mysql RDS
-# resource "aws_db_instance" "my-sql-rds" {
-#   identifier             = "employees-db"
-#   engine                 = "mysql"
-#   engine_version         = "8.0"
-#   instance_class         = "db.t3.micro"
-#   allocated_storage      = 20
-#   db_name                = "employees_db"
-#   username               = var.db-username
-#   password               = var.db-password
-#   db_subnet_group_name   = aws_db_subnet_group.my-rds-subnet.id
-#   vpc_security_group_ids = [aws_security_group.my-rds-sg.id]
-#   skip_final_snapshot    = true
-#   publicly_accessible    = false
-#   multi_az               = false
-#   tags = {
-#     Name = "mySQLRDS"
-#   }
-# }
+# Mysql RDS
+resource "aws_db_instance" "my-sql-rds" {
+  identifier             = "employees-db"
+  engine                 = "mysql"
+  engine_version         = "8.0"
+  instance_class         = "db.t3.micro"
+  allocated_storage      = 20
+  db_name                = "employees_db"
+  username               = var.db-username
+  password               = var.db-password
+  db_subnet_group_name   = aws_db_subnet_group.my-rds-subnet.id
+  vpc_security_group_ids = [aws_security_group.my-rds-sg.id]
+  skip_final_snapshot    = true
+  publicly_accessible    = false
+  multi_az               = false
+  tags = {
+    Name = "mySQLRDS"
+  }
+}
 
 #ALB
 resource "aws_lb" "my-alb" {
@@ -213,39 +213,39 @@ resource "aws_alb_listener_rule" "my-alb-listener-backend" {
   }
 }
 
-# #Role for Task Definition
-# resource "aws_iam_role" "my-exec-role" {
-#   name               = "myExecutionRole"
-#   assume_role_policy = data.aws_iam_policy_document.assume-role.json
-# }
+#Role for Task Definition
+resource "aws_iam_role" "my-exec-role" {
+  name               = "myExecutionRole"
+  assume_role_policy = data.aws_iam_policy_document.assume-role.json
+}
 
-# #Policy Doc
-# data "aws_iam_policy_document" "assume-role" {
-#   statement {
-#     actions = ["sts:AssumeRole"]
-#     principals {
-#       type        = "Service"
-#       identifiers = ["ecs-tasks.amazonaws.com"]
-#     }
-#   }
-# }
+#Policy Doc
+data "aws_iam_policy_document" "assume-role" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["ecs-tasks.amazonaws.com"]
+    }
+  }
+}
 
-# #Attach Permission
-# resource "aws_iam_role_policy_attachment" "name" {
-#   role       = aws_iam_role.my-exec-role.name
-#   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-# }
+#Attach Permission
+resource "aws_iam_role_policy_attachment" "name" {
+  role       = aws_iam_role.my-exec-role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
 
 
 # #ECR REPO(frontend)
-# resource "aws_ecr_repository" "my-ecr-frontend" {
-#   name = "myECRRepoFrontend"
-# }
+resource "aws_ecr_repository" "my-ecr-frontend" {
+  name = "my-ecr-repo-frontend"
+}
 
-# #ECR Repo(Backend)
-# resource "aws_ecr_repository" "my-ecr-backend" {
-#   name = "myECRRepoBackend"
-# }
+#ECR Repo(Backend)
+resource "aws_ecr_repository" "my-ecr-backend" {
+  name = "my-ecr-repo-backend"
+}
 
 # # ECS Cluster
 # resource "aws_ecs_cluster" "my-ecs-cluster" {

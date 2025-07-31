@@ -24,9 +24,9 @@ variable "my-private-subnet" {
   description = "Private Subnet Arguments"
 
   default = {
-    availability_zone = ["ap-south-1a", "ap-south-1b"],
-    cidr_block        = ["10.0.3.0/24", "10.0.4.0/24"],
-    name              = ["my-private-subnet-1a-rds", "my-private-subnet-1b"]
+    availability_zone = ["ap-south-1a", "ap-south-1b", "ap-south-1c"],
+    cidr_block        = ["10.0.3.0/24", "10.0.4.0/24", "10.0.5.0/24"],
+    name              = ["my-private-subnet-1a-rds", "my-private-subnet-1b", "my-private-subnet-1c-rds"]
   }
 }
 
