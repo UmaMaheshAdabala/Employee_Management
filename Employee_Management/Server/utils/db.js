@@ -38,7 +38,7 @@ con.query(
   `
   CREATE TABLE IF NOT EXISTS admin (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    email VARCHAR(100),
+    email VARCHAR(100) UNIQUE,
     password VARCHAR(150)
   )
 `,
@@ -51,12 +51,20 @@ con.query(
 const email = "admin1@gmail.com";
 const password = "12345";
 
-const sql = "INSERT INTO admin (email, password) VALUES (?, ?)";
+const sql = `
+  INSERT INTO admin (email, password)
+  VALUES (?, ?)
+  ON DUPLICATE KEY UPDATE password = VALUES(password)
+`;
 con.query(sql, [email, password], (err, result) => {
   if (err) {
     console.error("Insert error:", err);
   } else {
-    console.log("Admin inserted with ID:", result.insertId);
+    if (result.affectedRows === 1) {
+      console.log("Inserted new admin");
+    } else if (result.affectedRows === 2) {
+      console.log("Updated existing admin");
+    }
   }
 });
 con.query(
