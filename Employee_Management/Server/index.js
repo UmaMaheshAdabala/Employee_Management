@@ -41,6 +41,11 @@ const verifyUser = (req, res, next) => {
     return res.json({ Status: false, Error: "Not autheticated" });
   }
 };
+
+app.get("/api/health", (req, res) => {
+  res.status(200).send("OK");
+});
+
 app.get("/api/verify", verifyUser, (req, res) => {
   return res.json({ Status: true, role: req.role, id: req.id });
 });

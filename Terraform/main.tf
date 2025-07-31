@@ -38,6 +38,22 @@ resource "aws_internet_gateway" "my-igw" {
   }
 }
 
+# Elastic IP
+resource "aws_eip" "my-nat-eip" {
+  vpc = true
+}
+
+#NAT GATEWAY
+resource "aws_nat_gateway" "my-nat" {
+  allocation_id = aws_eip.my-nat-eip.id
+  subnet_id     = aws_subnet.my-public-subnet[0].id
+  tags = {
+    Name = "myNATGateway"
+  }
+  depends_on = [aws_internet_gateway.my-igw]
+}
+
+
 #Public Route Table
 resource "aws_route_table" "my-public-rt" {
   vpc_id = aws_vpc.my-vpc.id
@@ -61,6 +77,14 @@ resource "aws_route_table" "my-private-rt" {
   }
 }
 
+#Private Route
+resource "aws_route" "private_nat_route" {
+  route_table_id         = aws_route_table.my-private-rt.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.my-nat.id
+}
+
+
 #Public Route Association 
 resource "aws_route_table_association" "my-public-route-association" {
   route_table_id = aws_route_table.my-public-rt.id
@@ -71,7 +95,7 @@ resource "aws_route_table_association" "my-public-route-association" {
 #Private Route Association
 resource "aws_route_table_association" "my-private-route-association" {
   route_table_id = aws_route_table.my-private-rt.id
-  count          = 2
+  count          = 3
   subnet_id      = aws_subnet.my-private-subnet[count.index].id
 }
 
@@ -167,18 +191,20 @@ resource "aws_lb" "my-alb" {
 
 #ALB Target Group(Frontend)
 resource "aws_alb_target_group" "my-alb-tg-frontend" {
-  name     = "myTGFrontend"
-  vpc_id   = aws_vpc.my-vpc.id
-  port     = 80
-  protocol = "HTTP"
+  name        = "myTGFrontend"
+  vpc_id      = aws_vpc.my-vpc.id
+  port        = 80
+  protocol    = "HTTP"
+  target_type = "ip"
 }
 
 #ALB Target Group(Backend)
 resource "aws_alb_target_group" "my-alb-tg-backend" {
-  name     = "myTGBackend"
-  vpc_id   = aws_vpc.my-vpc.id
-  port     = 3000
-  protocol = "HTTP"
+  name        = "myTGBackend"
+  vpc_id      = aws_vpc.my-vpc.id
+  port        = 3000
+  protocol    = "HTTP"
+  target_type = "ip"
   health_check {
     path                = "/api/auth/adminlogin"
     interval            = 30
@@ -247,117 +273,121 @@ resource "aws_ecr_repository" "my-ecr-backend" {
   name = "my-ecr-repo-backend"
 }
 
-# # ECS Cluster
-# resource "aws_ecs_cluster" "my-ecs-cluster" {
-#   name = "myECSCLUSTER"
-# }
+# ECS Cluster
+resource "aws_ecs_cluster" "my-ecs-cluster" {
+  name = "myECSCLUSTER"
+}
 
-# #Task Definition (frontend)
-# resource "aws_ecs_task_definition" "my-task-frontend" {
-#   family                   = "myECSTaskFrontend"
-#   container_definitions    = <<DEFINITION
-#   [
-#     {
-#       "name" : "my-frontend-container",
-#       "image" : "${aws_ecr_repository.my-ecr-frontend.repository_url}",
-#       "essential" : true,
-#       "portMappings" : [
-#         {
-#           "containerPort" : 80,
-#           "hostPort" : 80,
-#         }
-#       ],
-#       "memory" : 717,
-#       "cpu" : 512,
-#       environment = [
-#         { 
-#           name = "VITE_BACKEND_URL", value = "http://${aws_lb.alb.dns_name}/api" 
-#         },
-#         { 
-#           name = "VITE_BACKEND_IMAGE", value = "http://${aws_lb.alb.dns_name}/Images/" 
-#         }
-#       ]
-#     }
-#   ]
-#   DEFINITION
-#   requires_compatibilities = ["FARGATE"]
-#   network_mode             = "awsvpc"
-#   memory                   = 717
-#   cpu                      = 512
-#   execution_role_arn       = aws_iam_role.my-exec-role.arn
-# }
+#Task Definition (frontend)
+resource "aws_ecs_task_definition" "my-task-frontend" {
+  family                   = "my-frontend-task"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "512"
+  memory                   = "1024"
+  execution_role_arn       = aws_iam_role.my-exec-role.arn
 
-# #Task Definition (Backend)
-# resource "aws_ecs_task_definition" "my-task-backend" {
-#   family                   = "myECSBackend"
-#   container_definitions    = <<DEFINITION
-#   [ 
-#     {
-#       "name": "my-backend-container",
-#       "image":"${aws_ecr_repository.my-ecr-backend.repository_url}",
-#       "essential":true,
-#       "portMappings":[
-#         {
-#           "containerPort" : 3000,
-#           "hostPort": 3000
-#         }
-#       ],
-#       "memory" : 717,
-#       "cpu" : 512,
-#        environment = [
-#         { name = "DATABASE_ENDPOINT", value = aws_db_instance.mysql.address },
-#         { name = "DATABASE_USER", value = aws_db_instance.mysql.username },
-#         { name = "DATABASE_PASSWORD", value = aws_db_instance.mysql.password },
-#         { name = "FRONTEND_URL", value = "http://${aws_lb.alb.dns_name}" },
-#       ]
-#     }
-#   ]
-#   DEFINITION
-#   requires_compatibilities = ["FARGATE"]
-#   network_mode             = "awsvpc"
-#   memory                   = 717
-#   cpu                      = 512
-#   execution_role_arn       = aws_iam_role.my-exec-role.arn
-# }
+  container_definitions = jsonencode([
+    {
+      name      = "my-frontend-container",
+      image     = aws_ecr_repository.my-ecr-frontend.repository_url,
+      essential = true,
+      portMappings = [
+        {
+          containerPort = 80,
+          hostPort      = 80
+        }
+      ],
+      memory = 717,
+      cpu    = 512
+    }
+  ])
+}
 
 
-# # ECS service (frontend)
-# resource "aws_ecs_service" "my-ecs-service-frontend" {
-#   name            = "myECSFrontendService"
-#   cluster         = aws_ecs_cluster.my-ecs-cluster.id
-#   task_definition = aws_ecs_task_definition.my-task-frontend.arn
-#   desired_count   = 1
-#   launch_type     = "FARGATE"
-#   network_configuration {
-#     subnets          = [aws_subnet.my-private-subnet[1].id]
-#     security_groups  = [aws_security_group.my-ecs-sg.id]
-#     assign_public_ip = true
-#   }
-#   load_balancer {
-#     target_group_arn = aws_alb_target_group.my-alb-tg-frontend.arn
-#     container_name   = "my-frontend-container"
-#     container_port   = 80
-#   }
-#   depends_on = [aws_alb_listener.my-alb-listener]
-# }
+#Task Definition (Backend)
+resource "aws_ecs_task_definition" "my-task-backend" {
+  family                   = "my-backend-task"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "512"
+  memory                   = "1024"
+  execution_role_arn       = aws_iam_role.my-exec-role.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "my-backend-container",
+      image     = aws_ecr_repository.my-ecr-backend.repository_url,
+      essential = true,
+      portMappings = [
+        {
+          containerPort = 3000,
+          hostPort      = 3000
+        }
+      ],
+      memory = 717,
+      cpu    = 512,
+      environment = [
+        {
+          name  = "DATABASE_ENDPOINT",
+          value = aws_db_instance.my-sql-rds.address
+        },
+        {
+          name  = "DATABASE_USER",
+          value = aws_db_instance.my-sql-rds.username
+        },
+        {
+          name  = "DATABASE_PASSWORD",
+          value = aws_db_instance.my-sql-rds.password
+        },
+        {
+          name  = "FRONTEND_URL",
+          value = "http://${aws_lb.my-alb.dns_name}"
+        }
+      ]
+    }
+  ])
+}
 
 
-# #ECS Service (backend)
-# resource "aws_ecs_service" "my-ecs-service-backend" {
-#   name            = "myECSBackendService"
-#   cluster         = aws_ecs_cluster.my-ecs-cluster.id
-#   task_definition = aws_ecs_task_definition.my-task-backend.arn
-#   desired_count   = 1
-#   launch_type     = "FARGATE"
-#   network_configuration {
-#     subnets          = [aws_subnet.my-private-subnet[1].id]
-#     security_groups  = [aws_security_group.my-ecs-sg.id]
-#     assign_public_ip = false
-#   }
-#   load_balancer {
-#     target_group_arn = aws_alb_target_group.my-alb-tg-backend.arn
-#     container_name   = "my-backend-container"
-#     container_port   = 3000
-#   }
-#   depends_on = [aws_alb_listener.my-alb-listener]
-# }
+
+# ECS service (frontend)
+resource "aws_ecs_service" "my-ecs-service-frontend" {
+  name            = "myECSFrontendService"
+  cluster         = aws_ecs_cluster.my-ecs-cluster.id
+  task_definition = aws_ecs_task_definition.my-task-frontend.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+  network_configuration {
+    subnets          = [aws_subnet.my-private-subnet[1].id]
+    security_groups  = [aws_security_group.my-ecs-sg.id]
+    assign_public_ip = true
+  }
+  load_balancer {
+    target_group_arn = aws_alb_target_group.my-alb-tg-frontend.arn
+    container_name   = "my-frontend-container"
+    container_port   = 80
+  }
+  depends_on = [aws_alb_listener.my-alb-listener]
+}
+
+
+#ECS Service (backend)
+resource "aws_ecs_service" "my-ecs-service-backend" {
+  name            = "myECSBackendService"
+  cluster         = aws_ecs_cluster.my-ecs-cluster.id
+  task_definition = aws_ecs_task_definition.my-task-backend.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+  network_configuration {
+    subnets          = [aws_subnet.my-private-subnet[1].id]
+    security_groups  = [aws_security_group.my-ecs-sg.id]
+    assign_public_ip = false
+  }
+  load_balancer {
+    target_group_arn = aws_alb_target_group.my-alb-tg-backend.arn
+    container_name   = "my-backend-container"
+    container_port   = 3000
+  }
+  depends_on = [aws_alb_listener.my-alb-listener]
+}
