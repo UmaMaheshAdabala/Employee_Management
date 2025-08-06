@@ -71,7 +71,7 @@ router.post("/add_employee", upload.single("image"), (req, res) => {
       hash,
       req.body.address,
       req.body.salary,
-      req.file.filename,
+      "",
       req.body.category_id,
     ];
     con.query(sql, [values], (err, result) => {

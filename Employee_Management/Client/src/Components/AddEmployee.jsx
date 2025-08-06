@@ -147,7 +147,7 @@ const AddEmployee = () => {
               })}
             </select>
           </div>
-          <div className="col-12 mb-3">
+          {/* <div className="col-12 mb-3">
             <label className="form-label" for="inputGroupFile01">
               Select Image
             </label>
@@ -160,7 +160,7 @@ const AddEmployee = () => {
                 setEmployee({ ...employee, image: e.target.files[0] })
               }
             />
-          </div>
+          </div> */}
           <div className="col-12">
             <button type="submit" className="btn btn-primary w-100">
               Add Employee
