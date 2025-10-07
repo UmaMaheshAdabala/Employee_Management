@@ -40,7 +40,9 @@ resource "aws_internet_gateway" "my-igw" {
 
 # Elastic IP
 resource "aws_eip" "my-nat-eip" {
-  vpc = true
+  tags = {
+    Name = "myNATEIP"
+  }
 }
 
 #NAT GATEWAY
@@ -351,6 +353,7 @@ resource "aws_ecs_task_definition" "my-task-backend" {
           value = "http://${aws_lb.my-alb.dns_name}"
         }
       ]
+
     }
   ])
 }
@@ -397,3 +400,6 @@ resource "aws_ecs_service" "my-ecs-service-backend" {
   }
   depends_on = [aws_alb_listener.my-alb-listener]
 }
+
+
+
